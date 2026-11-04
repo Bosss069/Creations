@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course Sessions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --text:#1d2233; --muted:#6b7280; --accent:#4f46e5; --border:#e5e7eb; }
+  * { box-sizing: border-box; }
+  html { font-size:110%; }
+  body { margin:0; font-family: 'Lexend', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  header { background:var(--accent); color:#fff; padding:16px 20px; }
+  header h1 { margin:0; font-size:1.3rem; }
+  main { width:80%; margin:0 auto; padding:20px; }
+  a.back { color:var(--accent); text-decoration:none; font-weight:600; }
+  .status { color:var(--muted); font-size:.9rem; margin:8px 0; }
+  .grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:20px; }
+  .session-tile { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px 28px; min-height:150px; text-align:left; text-decoration:none; color:var(--text); display:flex; align-items:center; gap:28px; }
+  .session-tile:hover { border-color:var(--accent); }
+  .tile-img { width:80px; height:80px; object-fit:contain; flex-shrink:0; margin-left:12px; }
+  .tile-text { display:block; min-width:0; }
+  .tile-num { display:block; font-size:.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .tile-title { display:block; font-size:1.15rem; font-weight:700; margin-top:4px; }
+  .session-title { font-size:1.4rem; margin:6px 0 16px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+  .card-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .card h3 { margin:0; font-size:1.05rem; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; border:none; border-radius:6px; padding:8px 14px; font-size:.9rem; text-decoration:none; cursor:pointer; }
+  .btn.secondary { background:#eef2ff; color:var(--accent); }
+  .btn:disabled { background:#cbd5e1; cursor:not-allowed; }
+  .nav { display:flex; justify-content:space-between; margin-top:20px; }
+  .missing { color:#b91c1c; font-size:.85rem; margin-top:6px; }
+
+  /* Session page: recall/concept full width, challenges and home tasks in two columns */
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .activity-box { display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:16px;
+    height:150px; padding:16px 24px; background:var(--card); border:1px solid var(--border); border-radius:12px;
+    text-align:center; text-decoration:none; color:var(--text); font-weight:700; font-size:1.15rem; line-height:1.3;
+    cursor:pointer; transition:border-color .15s, box-shadow .15s; }
+  a.activity-box:hover { border-color:var(--accent); box-shadow:0 4px 12px rgba(79,70,229,.15); }
+  .activity-box .sub { display:block; font-size:.75rem; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+  .activity-box.disabled { cursor:default; color:var(--muted); background:#f3f4f6; font-weight:600; }
+  .activity-box small { display:block; font-size:.8rem; color:#b91c1c; font-weight:400; }
+  .box-img { width:72px; height:72px; object-fit:contain; flex-shrink:0; }
+  .box-text { flex:1; min-width:0; text-align:left; }
+
+  /* Phones */
+  @media (max-width:700px) {
+    main { width:100%; padding:14px; }
+    .cards { grid-template-columns:1fr; }
+    .activity-box { height:120px; padding:12px 16px; }
+    .box-img { width:56px; height:56px; }
+  }
+  @media (max-width:520px) {
+    .grid { grid-template-columns:1fr; }
+    .session-tile { padding:16px; min-height:0; gap:16px; }
+    .tile-img { width:56px; height:56px; margin-left:0; }
+    .session-title { font-size:1.2rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Course Sessions</h1>
+</header>
+
+<main id="app"><p class="status">Loading…</p></main>
+
+<script>
+/* ==== CONFIG ====
+   1. In your Google Sheet: Extensions > Apps Script. Paste apps_script.gs, save.
+   2. Deploy > New deployment > type: Web app > Execute as: Me > Who has access: Anyone > Deploy.
+   3. Copy the Web app URL and paste it between the quotes below.
+   Leave empty to use sample data. */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzcI8jsXGmyjiMOtDLmjxkY2ErbPBQ1pZDG54EvI0dOjrKYrEvvwkyoBcaVuLsiCzUQOQ/exec";
+
+const TOTAL_SESSIONS = 48;
+
+/* Sheet headers are matched without regard to capitals, so "CC1", "cc1" and "Cc1" all work.
+   key   = the sheet column holding the link
+   name  = the sheet column holding the activity name (key + "_Name" by default)
+   label = the fallback text if the name cell is empty */
+const ITEMS = [
+  { key: "recall",  label: "Recall Test",       mode: "link" },
+  { key: "concept", label: "Concepts Test",     mode: "link" },
+  { key: "cc1",     label: "Class Challenge 1", mode: "embed" },
+  { key: "cc2",     label: "Class Challenge 2", mode: "embed" },
+  { key: "ht1",     label: "Home Task 1",       mode: "embed" },
+  { key: "ht2",     label: "Home Task 2",       mode: "embed" },
+];
+
+let sessions = {}; // { 1: { title, recall, concept, cc1, cc1_name, ... } }
+
+/* ---------- Data ---------- */
+function sampleData() {
+  const out = {};
+  for (let n = 1; n <= TOTAL_SESSIONS; n++) {
+    out[n] = { title: n === 1 ? "Intro to Scratch" : `Sample Topic ${n}` };
+    ITEMS.forEach(it => {
+      out[n][it.key] = `https://example.com/s${n}/${it.key}`;
+      out[n][it.key + "_name"] = `${it.label} - Sample ${n}`;
+    });
+  }
+  return out;
+}
+
+async function loadSessions() {
+  if (!APPS_SCRIPT_URL) return sampleData();
+  try {
+    const res = await fetch(APPS_SCRIPT_URL);
+    const data = await res.json();
+    const sess = {};
+    (data.sessions || []).forEach(row => {
+      // Lower-case every header so the page works whatever capitals the sheet uses.
+      const r = {};
+      Object.keys(row).forEach(h => r[String(h).trim().toLowerCase()] = row[h]);
+      const num = parseInt(String(r.no).replace(/\D/g, ""), 10);
+      if (!isNaN(num)) sess[num] = r;
+    });
+    return sess;
+  } catch (e) {
+    console.error("Could not load sheet, using sample data:", e);
+    return sampleData();
+  }
+}
+
+/* ---------- Helpers ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+// Activity name from the sheet (e.g. CC1_Name), else the default label.
+function itemName(s, it) {
+  return s[it.key + "_name"] || it.label;
+}
+
+/* ---------- Rendering ---------- */
+function renderHome() {
+  const tiles = Object.keys(sessions).map(Number).sort((a, b) => a - b).map(n =>
+    `<a class="session-tile" href="#/session/${n}">
+       <img class="tile-img" src="images/${n}.png" alt="" onerror="this.style.visibility='hidden'">
+       <span class="tile-text">
+         <span class="tile-num">Session ${n}</span>
+         <span class="tile-title">${esc(sessions[n].title || `Session ${n}`)}</span>
+       </span>
+     </a>`).join("");
+  document.getElementById("app").innerHTML = `<h2>All Sessions</h2><div class="grid">${tiles}</div>`;
+}
+
+function renderSession(n) {
+  const s = sessions[n];
+  if (!s) {
+    document.getElementById("app").innerHTML =
+      `<a class="back" href="#/">← All sessions</a><p class="status">Session ${esc(n)} not found.</p>`;
+    return;
+  }
+  // Each box is the whole link: clicking it opens the activity in a new tab.
+  const cards = ITEMS.map(base => {
+    const url = s[base.key];
+    const name = itemName(s, base);
+    const title = name !== base.label
+      ? `<span class="sub">${esc(base.label)}</span>${esc(name)}`
+      : esc(base.label);
+    const img = `<img class="box-img" src="images/${base.key}.png" alt="" onerror="this.style.visibility='hidden'">`;
+    if (!url) return `<div class="activity-box disabled">${img}<span class="box-text">${title}<small>Activity not available</small></span></div>`;
+    return `<a class="activity-box" href="${esc(url)}" target="_blank" rel="noopener">${img}<span class="box-text">${title}</span></a>`;
+  }).join("");
+
+  const nums = Object.keys(sessions).map(Number).sort((a, b) => a - b);
+  const i = nums.indexOf(n);
+  const prev = i > 0 ? `<a class="back" href="#/session/${nums[i-1]}">← Session ${nums[i-1]}</a>` : "<span></span>";
+  const next = i < nums.length - 1 ? `<a class="back" href="#/session/${nums[i+1]}">Session ${nums[i+1]} →</a>` : "<span></span>";
+
+  document.getElementById("app").innerHTML = `
+    <a class="back" href="#/">← Back</a>
+    <h2 class="session-title">Session ${n}${s.title ? ` – ${esc(s.title)}` : ""}</h2>
+    <div class="cards">${cards}</div>
+    <div class="nav">${prev}${next}</div>`;
+}
+
+/* ---------- Navigation ---------- */
+function show(n) {
+  if (n) renderSession(n); else renderHome();
+  window.scrollTo(0, 0);
+}
+
+// n = 0 means home. Works even where the URL hash cannot change.
+function go(n) {
+  try { history.pushState(null, "", n ? `#/session/${n}` : "#/"); } catch (e) {}
+  show(n);
+}
+
+function route() {
+  const m = location.hash.match(/^#\/session\/(\d+)$/);
+  show(m ? parseInt(m[1], 10) : 0);
+}
+
+/* ---------- Init ---------- */
+(async function init() {
+  sessions = await loadSessions();
+
+  document.addEventListener("click", e => {
+    const a = e.target.closest("a[href^='#']");
+    if (!a) return;
+    const href = a.getAttribute("href");
+    const m = href.match(/^#\/session\/(\d+)$/);
+    if (m || href === "#/") {
+      e.preventDefault();
+      go(m ? parseInt(m[1], 10) : 0);
+    }
+  });
+  window.addEventListener("hashchange", route);
+  route();
+})();
+</script>
+</body>
+</html>
