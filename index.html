@@ -164,12 +164,15 @@ function renderSession(n) {
   // Each box is the whole link: clicking it opens the activity in a new tab.
   const cards = ITEMS.map(base => {
     const url = s[base.key];
-    const name = itemName(s, base);
-    const title = name !== base.label
+    const name = s[base.key + "_name"]; // exercise name from the sheet, e.g. CC1_Name
+    // An exercise with no name in the sheet is not shown at all.
+    if (base.mode === "embed" && !name) return "";
+    const title = name
       ? `<span class="sub">${esc(base.label)}</span>${esc(name)}`
       : esc(base.label);
     const img = `<img class="box-img" src="images/${base.key}.png" alt="" onerror="this.style.visibility='hidden'">`;
-    if (!url) return `<div class="activity-box disabled">${img}<span class="box-text">${title}<small>Activity not available</small></span></div>`;
+    // Name is present but the link is missing: show the box, marked as unavailable.
+    if (!url) return `<div class="activity-box disabled">${img}<span class="box-text">${title}<small>Link is not there</small></span></div>`;
     return `<a class="activity-box" href="${esc(url)}" target="_blank" rel="noopener">${img}<span class="box-text">${title}</span></a>`;
   }).join("");
 
